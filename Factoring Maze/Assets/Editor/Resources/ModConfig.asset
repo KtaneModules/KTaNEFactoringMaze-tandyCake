@@ -18,4 +18,4 @@ MonoBehaviour:
     Danny7007\r\r\nmoduleID: factoringMaze\nManual can be found on ktane.timwi.de"
   version: 1.0.0
   outputFolder: build
-  previewImage: {fileID: 0}
+  previewImage: {fileID: 2800000, guid: 62586af88ab274545b18f4c5ef5562f2, type: 3}

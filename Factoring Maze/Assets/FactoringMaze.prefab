@@ -6175,6 +6175,7 @@ MonoBehaviour:
   buttonMats:
   - {fileID: 2100000, guid: c940624105dcc924cbd34e86db27d837, type: 2}
   - {fileID: 2100000, guid: 96db0c52954b8c54a9c1e4c67fcf37b5, type: 2}
+  solveColor: {fileID: 2100000, guid: b9e7d5dba7642de4591ec466442c343c, type: 2}
 --- !u!114 &114338977105434402
 MonoBehaviour:
   m_ObjectHideFlags: 1

@@ -12,6 +12,7 @@ public class FactoringMazeScript : MonoBehaviour {
     public KMAudio Audio;
     public KMSelectable[] buttons;
     public Material[] buttonMats;
+    public Material solveColor;
     private Color[] textColors = new Color[] { new Color(0, 0, 0), new Color(1, 1, 1) };
 
     static int moduleIdCounter = 1;
@@ -24,12 +25,7 @@ public class FactoringMazeScript : MonoBehaviour {
     int[] chosenPrimes;
 
     int curPos;
-    int curRow;
-    int curCol;
-
     int endPos;
-    int endRow;
-    int endCol;
 
     int[] offsets = new int[] { 4, 1, -4, -1 };
     string directions = "ULDR";
@@ -55,6 +51,8 @@ public class FactoringMazeScript : MonoBehaviour {
 
     void Press(KMSelectable button)
     {
+        button.AddInteractionPunch(0.25f);
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, button.transform);
         if (moduleSolved)
         {
             return;
@@ -67,12 +65,9 @@ public class FactoringMazeScript : MonoBehaviour {
             {
                 Debug.LogFormat("[Factoring Maze #{0}] You moved {1} from {2}.", moduleId, directionNames[Array.IndexOf(offsets, offset)], nodeNames[curPos]);
                 SetColors(curPos, 0);
-                SetCurPos(Array.IndexOf(buttons, button));
+                curPos = Array.IndexOf(buttons, button);
                 SetColors(curPos, 1);
-                if (curPos == endPos)
-                {
-                    StartCoroutine(Solve());
-                }
+                if (curPos == endPos) StartCoroutine(Solve());
             }
             else
             {
@@ -86,42 +81,30 @@ public class FactoringMazeScript : MonoBehaviour {
     {
         //maze = new string[] { "RD", "LR", "LR", "L", "UD", "RD", "LR", "L", "UR", "ULD", "RD", "L", "R", "ULR", "ULR", "L"};
         GenerateMaze();
-        GetEndPos();
-        GetStartPos();
-        for (int i = 0; i < 16; i++)
+        GetStartEnd();
+        /*for (int i = 0; i < 16; i++)
         {
             buttons[i].GetComponentInChildren<TextMesh>().text = maze[i];
-        }
+        }*/
         GetPrimes();
-        //PlacePrimes();
-        //LogPrimes();
+        PlacePrimes();
+        LogPrimes();
         LogMaze();
         Debug.Log(FindPath(curPos, endPos));
     }
 
-    void GetStartPos()
-    {
-        curPos = UnityEngine.Random.Range(0, 16);
-        curRow = curPos / 4;
-        curCol = curPos % 4;
-        Debug.LogFormat("[Factoring Maze #{0}] Your starting position is in row {1} and column {2}.", moduleId, curRow + 1, curCol + 1);
-        SetColors(curPos, 1); //Set start pos to white.
-    }
-
-    void GetEndPos()
+    void GetStartEnd()
     {
         if (Bomb.GetSerialNumberNumbers().All(x => x == 0)) endPos = 0;
         else endPos = (Product(Bomb.GetSerialNumberNumbers().ToArray()) - 1) % 16;
-        endRow = endPos / 4;
-        endCol = endPos % 4;
-        Debug.LogFormat("[Factoring Maze #{0}] Your goal's position is in row {1} and column {2}.", moduleId, endRow + 1, endCol + 1);
-    }
-
-    void SetCurPos(int position)
-    {
-        curPos = position;
-        curRow = position / 4;
-        curCol = position % 4;
+        curPos = UnityEngine.Random.Range(0, 16);
+        while (FindPath(curPos, endPos).Length < 3)
+        {
+            curPos = UnityEngine.Random.Range(0, 16); //Prevents trivial solutions
+        }
+        SetColors(curPos, 1); //Set start pos to white.
+        Debug.LogFormat("[Factoring Maze #{0}] Your starting position is in row {1} and column {2}.", moduleId, curPos / 4 + 1, curPos % 4 + 1);
+        Debug.LogFormat("[Factoring Maze #{0}] Your goal's position is in row {1} and column {2}.", moduleId, endPos / 4 + 1, endPos % 4 + 1);
     }
 
     List<int> GetAdjacents(int position)
@@ -142,11 +125,26 @@ public class FactoringMazeScript : MonoBehaviour {
 
     IEnumerator Solve()
     {
+        SetColors(curPos, 0);
         moduleSolved = true;
         GetComponent<KMBombModule>().HandlePass();
         Debug.LogFormat("[Factoring Maze #{0}] Goal position reached. Module solved!", moduleId);
-        yield return null;
+        bool unicorn = UnityEngine.Random.Range(0, 100) == 0 ? true : false;
+        for (int i = 0; i < 16; i++)
+        {
+            buttons[i].GetComponentInChildren<TextMesh>().text = unicorn ? "HOW" : "✓";
+            buttons[i].GetComponentInChildren<TextMesh>().characterSize = unicorn ? 3.5f : 7;
+            yield return new WaitForSecondsRealtime(0.1f);
+        }
+        yield return new WaitForSecondsRealtime(0.2f);
+        for (int i = 0; i < 16; i++)
+        {
+            buttons[i].GetComponent<MeshRenderer>().material = unicorn ? buttonMats[0] : solveColor;
+        }
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.CorrectChime, transform);
     }
+
+
 
     string AddNewline(string input)
     {
@@ -261,9 +259,6 @@ public class FactoringMazeScript : MonoBehaviour {
                 {
                     break;
                 }
-                Debug.Log(currentNode);
-                Debug.Log(visited.Join());
-                Debug.Log(visitOrder.Join());
                 chosenDestination = GetAdjacents(currentNode).Where(x => !visited[x]).PickRandom();
                 int direction = Array.IndexOf(offsets, currentNode - chosenDestination);
                 if (!maze[currentNode].Contains(directions[direction])) // If there's no passage here, make one.
@@ -288,6 +283,10 @@ public class FactoringMazeScript : MonoBehaviour {
 
     string FindPath(int start, int end)
     {
+        if (start == end)
+        {
+            return string.Empty;
+        }
         Queue<int> q = new Queue<int>();
         List<Movement> allMoves = new List<Movement>();
         q.Enqueue(start);
@@ -307,6 +306,12 @@ public class FactoringMazeScript : MonoBehaviour {
         }
         if (allMoves.Count != 0)
         {
+                string shit = string.Empty;
+            foreach (Movement movement in allMoves)
+            {
+               shit += movement.ToString() + " , ";
+            }
+            Debug.Log(shit);
             Movement lastMove = allMoves.First(x => x.end == end);
             List<Movement> path = new List<Movement>() { lastMove };
             while (lastMove.start != start)
@@ -342,8 +347,6 @@ public class FactoringMazeScript : MonoBehaviour {
         else return true;
 
     }
-
-
     #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"Use !{0} move ULDR to move in those directions.";
     #pragma warning restore 414
@@ -380,7 +383,15 @@ public class FactoringMazeScript : MonoBehaviour {
 
     IEnumerator TwitchHandleForcedSolve()
     {
-      yield return null;
+        while (!moduleSolved)
+        {
+            string command = FindPath(curPos, endPos);
+            foreach (char movement in command)
+            {
+                buttons[curPos - offsets[Array.IndexOf(directions.ToCharArray(), movement)]].OnInteract();
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
     }
 }
 
