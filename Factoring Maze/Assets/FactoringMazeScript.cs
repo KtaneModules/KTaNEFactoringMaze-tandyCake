@@ -42,11 +42,7 @@ public class FactoringMazeScript : MonoBehaviour {
         moduleId = moduleIdCounter++;
 
         foreach (KMSelectable thinmgy in buttons) 
-        {
             thinmgy.OnInteract += delegate () { Press(thinmgy); return false; };
-        }
-
-
     }
 
     void Press(KMSelectable button)
@@ -54,9 +50,7 @@ public class FactoringMazeScript : MonoBehaviour {
         button.AddInteractionPunch(0.25f);
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, button.transform);
         if (moduleSolved)
-        {
             return;
-        }
         int offset = curPos - Array.IndexOf(buttons, button);
         if (GetAdjacents(curPos).Contains(Array.IndexOf(buttons, button)))
         {
@@ -90,7 +84,6 @@ public class FactoringMazeScript : MonoBehaviour {
         PlacePrimes();
         LogPrimes();
         LogMaze();
-        Debug.Log(FindPath(curPos, endPos));
     }
 
     void GetStartEnd()
@@ -99,9 +92,7 @@ public class FactoringMazeScript : MonoBehaviour {
         else endPos = (Product(Bomb.GetSerialNumberNumbers().ToArray()) - 1) % 16;
         curPos = UnityEngine.Random.Range(0, 16);
         while (FindPath(curPos, endPos).Length < 3)
-        {
             curPos = UnityEngine.Random.Range(0, 16); //Prevents trivial solutions
-        }
         SetColors(curPos, 1); //Set start pos to white.
         Debug.LogFormat("[Factoring Maze #{0}] Your starting position is in row {1} and column {2}.", moduleId, curPos / 4 + 1, curPos % 4 + 1);
         Debug.LogFormat("[Factoring Maze #{0}] Your goal's position is in row {1} and column {2}.", moduleId, endPos / 4 + 1, endPos % 4 + 1);
@@ -138,9 +129,7 @@ public class FactoringMazeScript : MonoBehaviour {
         }
         yield return new WaitForSecondsRealtime(0.2f);
         for (int i = 0; i < 16; i++)
-        {
             buttons[i].GetComponent<MeshRenderer>().material = unicorn ? buttonMats[0] : solveColor;
-        }
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.CorrectChime, transform);
     }
 
@@ -163,10 +152,8 @@ public class FactoringMazeScript : MonoBehaviour {
     int Product(int[] inputs)
     {
         int value = 1;
-        foreach (int number in inputs)
-        {
+        foreach (int number in inputs)  
             if (number != 0) value *= number;
-        }
         return value;
     }
 
@@ -186,12 +173,8 @@ public class FactoringMazeScript : MonoBehaviour {
         {
             int value = 1;
             for (int j = 0; j < 4; j++)
-            {
                 if (!maze[i].Contains(directions[j]))
-                {
                     value *= chosenPrimes[j];
-                }
-            }
             primeGrid[i] = value;
             buttons[i].GetComponentInChildren<TextMesh>().text = AddNewline(value.ToString());
             buttons[i].GetComponentInChildren<TextMesh>().characterSize = GetSize(value.ToString());
@@ -233,6 +216,7 @@ public class FactoringMazeScript : MonoBehaviour {
                 ToBeLogged.Clear();
             }
         }
+        Debug.LogFormat("[Factoring Maze #{0}] The shortest possible path is {1}.", moduleId, FindPath(curPos, endPos));
     }
 
     void GenerateMaze()
