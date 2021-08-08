@@ -34,8 +34,7 @@ public class FactoringMazeScript : MonoBehaviour {
 
     int currentNode;
     bool[] visited = new bool[16];
-    int backtrackCount = 0;
-    List<int> visitOrder = new List<int>();
+    Stack<int> visitOrder = new Stack<int>();
     int startingNode;
 
     void Awake () {
@@ -68,31 +67,26 @@ public class FactoringMazeScript : MonoBehaviour {
                 GetComponent<KMBombModule>().HandleStrike();
                 Debug.LogFormat("[Factoring Maze #{0}] You tried to move {1} from {2}. Strike!", moduleId, directionNames[Array.IndexOf(offsets, offset)], nodeNames[curPos]);
             }
-        }        
+        }
     }
 
     void Start ()
     {
-        //maze = new string[] { "RD", "LR", "LR", "L", "UD", "RD", "LR", "L", "UR", "ULD", "RD", "L", "R", "ULR", "ULR", "L"};
         GenerateMaze();
+        LogMaze();
         GetStartEnd();
-        /*for (int i = 0; i < 16; i++)
-        {
-            buttons[i].GetComponentInChildren<TextMesh>().text = maze[i];
-        }*/
         GetPrimes();
         PlacePrimes();
         LogPrimes();
-        LogMaze();
+        Debug.LogFormat("[Factoring Maze #{0}] The shortest possible path is {1}.", moduleId, FindPath(curPos, endPos));
     }
 
     void GetStartEnd()
     {
         if (Bomb.GetSerialNumberNumbers().All(x => x == 0)) endPos = 0;
-        else endPos = (Product(Bomb.GetSerialNumberNumbers().ToArray()) - 1) % 16;
-        curPos = UnityEngine.Random.Range(0, 16);
-        while (FindPath(curPos, endPos).Length < 3)
-            curPos = UnityEngine.Random.Range(0, 16); //Prevents trivial solutions
+        else endPos = (Product(Bomb.GetSerialNumberNumbers()) - 1) % 16;
+        do curPos = UnityEngine.Random.Range(0, 16);
+        while (FindPath(curPos, endPos).Length < 3);
         SetColors(curPos, 1); //Set start pos to white.
         Debug.LogFormat("[Factoring Maze #{0}] Your starting position is in row {1} and column {2}.", moduleId, curPos / 4 + 1, curPos % 4 + 1);
         Debug.LogFormat("[Factoring Maze #{0}] Your goal's position is in row {1} and column {2}.", moduleId, endPos / 4 + 1, endPos % 4 + 1);
@@ -120,7 +114,7 @@ public class FactoringMazeScript : MonoBehaviour {
         moduleSolved = true;
         GetComponent<KMBombModule>().HandlePass();
         Debug.LogFormat("[Factoring Maze #{0}] Goal position reached. Module solved!", moduleId);
-        bool unicorn = UnityEngine.Random.Range(0, 100) == 0 ? true : false;
+        bool unicorn = UnityEngine.Random.Range(0, 100) == 0;
         for (int i = 0; i < 16; i++)
         {
             buttons[i].GetComponentInChildren<TextMesh>().text = unicorn ? "HOW" : "✓";
@@ -132,8 +126,6 @@ public class FactoringMazeScript : MonoBehaviour {
             buttons[i].GetComponent<MeshRenderer>().material = unicorn ? buttonMats[0] : solveColor;
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.CorrectChime, transform);
     }
-
-
 
     string AddNewline(string input)
     {
@@ -149,21 +141,18 @@ public class FactoringMazeScript : MonoBehaviour {
             default: return 3;
         }
     }
-    int Product(int[] inputs)
+    int Product(IEnumerable<int> inputs)
     {
         int value = 1;
         foreach (int number in inputs)  
-            if (number != 0) value *= number;
+            if (number != 0) 
+                value *= number;
         return value;
     }
 
     void GetPrimes()
     {
-        primes.Shuffle();
-        List<int> temp = new List<int>();
-        temp = primes.Take(4).ToList();
-        temp.Sort();
-        chosenPrimes = temp.ToArray();
+        chosenPrimes = primes.Shuffle().Take(4).OrderBy(x => x).ToArray();
         Debug.LogFormat("[Factoring Maze #{0}] The primes chosen by the module are {1}", moduleId, chosenPrimes.Join());
     }
     
@@ -200,77 +189,49 @@ public class FactoringMazeScript : MonoBehaviour {
         Debug.LogFormat("[Factoring Maze #{0}] The generated with its walls is as follows:", moduleId);
         for (int i = 0; i < 16; i++)
         {
-            int pointer = (2 * i) + 10 * (i / 4 + 1);
+            int pointer = 2 * i + 10 * (i / 4 + 1);
             if (!maze[i].Contains('U')) loggingMaze[pointer - 9] = '─';
             if (!maze[i].Contains('L')) loggingMaze[pointer - 1] = '│';
             if (!maze[i].Contains('D')) loggingMaze[pointer + 9] = '─';
             if (!maze[i].Contains('R')) loggingMaze[pointer + 1] = '│';
         }
-        List<char> ToBeLogged = new List<char>();
+        string ToBeLogged = "";
         for (int i = 0; i < loggingMaze.Length; i++)
         {
-            ToBeLogged.Add(loggingMaze[i]);
-            if ((i % 9) == 8)
+            ToBeLogged += loggingMaze[i];
+            if (ToBeLogged.Length == 9)
             {
-                Debug.LogFormat("[Factoring Maze #{0}] {1}", moduleId, ToBeLogged.Join(""));
-                ToBeLogged.Clear();
+                Debug.LogFormat("[Factoring Maze #{0}] {1}", moduleId, ToBeLogged);
+                ToBeLogged = "";
             }
         }
-        Debug.LogFormat("[Factoring Maze #{0}] The shortest possible path is {1}.", moduleId, FindPath(curPos, endPos));
     }
 
     void GenerateMaze()
     {
         startingNode = UnityEngine.Random.Range(0, 16);
-        int chosenDestination = 0;
         currentNode = startingNode;
-
-        int iterations = 0;
-        while ((currentNode != startingNode) || (iterations == 0))
+        do
         {
-            if (iterations > 1000)
-            {
-                Debug.Log("uuuuuuuu maze machine broke");
-                Debug.Log(visited.Join(" "));
-                Solve();
-                break;
-            }
+            visitOrder.Push(currentNode);
             visited[currentNode] = true;
-            visitOrder.Add(currentNode);
-            if (CheckAdjacents(currentNode))
-            {
-                if (currentNode == startingNode && iterations != 0)
-                {
-                    break;
-                }
-                chosenDestination = GetAdjacents(currentNode).Where(x => !visited[x]).PickRandom();
-                int direction = Array.IndexOf(offsets, currentNode - chosenDestination);
-                if (!maze[currentNode].Contains(directions[direction])) // If there's no passage here, make one.
-                {
-                    maze[currentNode] += directions[direction];
-                }
-                if (!maze[chosenDestination].Contains(directions[(direction + 2) % 4])) // Carves a passage from destination to the start again.
-                {
-                    maze[chosenDestination] += directions[(direction + 2) % 4];
-                }
-            }
-
-            for (int i = 0; i < 16; i++)
-            {
-                buttons[i].GetComponentInChildren<TextMesh>().text = maze[i];
-            }
-            visitOrder.Add(currentNode);
+            while (GetAdjacents(currentNode).All(x => visited[x]))
+                if (visitOrder.Count() != 0)
+                    currentNode = visitOrder.Pop();
+                else goto End; //Goto moment :ultratrolled:   // Escapes from the outer do-while loop.
+            int chosenDestination = GetAdjacents(currentNode).Where(x => !visited[x]).PickRandom();
+            int dir = Array.IndexOf(offsets, currentNode - chosenDestination);
+            maze[currentNode] += directions[dir];
+            maze[chosenDestination] += directions[(dir + 2) % 4];
             currentNode = chosenDestination;
-            iterations++;
-        }
+        } while (currentNode != startingNode);
+        End:;
     }
 
     string FindPath(int start, int end)
     {
         if (start == end)
-        {
             return string.Empty;
-        }
         Queue<int> q = new Queue<int>();
         List<Movement> allMoves = new List<Movement>();
         q.Enqueue(start);
@@ -286,16 +247,10 @@ public class FactoringMazeScript : MonoBehaviour {
                 }
             }
             if (subject == end) break;
-
         }
         if (allMoves.Count != 0)
         {
-                string shit = string.Empty;
-            foreach (Movement movement in allMoves)
-            {
-               shit += movement.ToString() + " , ";
-            }
-            Debug.Log(shit);
+            Debug.LogFormat("<Factoring Maze #{0}> Pathfinder path: {1}", moduleId, allMoves.Join(", "));
             Movement lastMove = allMoves.First(x => x.end == end);
             List<Movement> path = new List<Movement>() { lastMove };
             while (lastMove.start != start)
@@ -306,56 +261,34 @@ public class FactoringMazeScript : MonoBehaviour {
             path.Reverse();
             string solution = string.Empty;
             for (int i = 0; i < path.Count; i++)
-            {
                 solution += path[i].direction;
-            }
-
             return solution;
         }
         else return string.Empty;
     }
 
-    bool CheckAdjacents(int input)
-    {
-        List<int> adjacents = GetAdjacents(input);
-        if (adjacents.Where(x => !visited[x]).Count() == 0)
-        {
-            backtrackCount++;
-            currentNode = visitOrder[visitOrder.Count() - 1 - backtrackCount];
-            if (currentNode == startingNode)
-            {
-                return true;
-            }
-            return CheckAdjacents(currentNode);
-        }
-        else return true;
-
-    }
     #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"Use !{0} move ULDR to move in those directions.";
-    #pragma warning restore 414
+#pragma warning restore 414
 
     IEnumerator ProcessTwitchCommand(string Command)
     {
-        string[] parameters = Command.Trim().ToUpperInvariant().Split(' ');
+        string[] parameters = Command.Trim().ToUpperInvariant().Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
         if (Regex.IsMatch(Command, @"^\s*move\s+[ULDR]+\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
         {
             yield return null;
             int pos = curPos;
             List<int> presses = new List<int>();
-            foreach (char letter in parameters[1])
+            foreach (char letter in parameters[1].ToUpperInvariant())
             {
-                int dirNum = Array.IndexOf(directions.ToCharArray(), letter);
+                int dirNum = directions.IndexOf(letter);
                 if (!GetAdjacents(pos).Contains(pos - offsets[dirNum]))
                 {
-                    yield return "sendtochaterror " + "Command left bounds of maze, command aborted.";
+                    yield return "sendtochaterror Command left bounds of maze, command aborted.";
                     yield break;
                 }
-                else 
-                {
-                    presses.Add(pos - offsets[dirNum]);
-                    pos = pos - offsets[dirNum];
-                }
+                else
+                    presses.Add(pos -= offsets[dirNum]);
             }
             foreach (int value in presses)
             {
@@ -372,7 +305,7 @@ public class FactoringMazeScript : MonoBehaviour {
             string command = FindPath(curPos, endPos);
             foreach (char movement in command)
             {
-                buttons[curPos - offsets[Array.IndexOf(directions.ToCharArray(), movement)]].OnInteract();
+                buttons[curPos - offsets[directions.IndexOf(movement)]].OnInteract();
                 yield return new WaitForSeconds(0.1f);
             }
         }
@@ -381,17 +314,16 @@ public class FactoringMazeScript : MonoBehaviour {
 
 public class Movement
 {
-    public int start { get; set; }
-    public int end { get; set; }
-    public char direction { get; set; }
-
+    public int start;
+    public int end;
+    public char direction;
     public Movement(int s, int e, int d)
     {
         start = s;
         end = e;
         direction = "ULDR"[d];
     }
-    public string ToString()
+    public override string ToString()
     {
         return string.Format("({0}, {1}, {2})", start, end, direction); //Here for debugging purposes
     }
